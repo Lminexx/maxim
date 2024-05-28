@@ -36,6 +36,11 @@ public class Singleton implements Iterable<Rabbit> {
         hashMap.remove(rabbit.timeBorn, rabbit);
 
     }
+
+    public void setVectorList(Vector<Rabbit> vectorList) {
+        VectorList = vectorList;
+    }
+
     @Override
     public Iterator<Rabbit> iterator() {
         return VectorList.iterator();

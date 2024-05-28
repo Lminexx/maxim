@@ -1,7 +1,9 @@
 package Rabbits;
 
 import java.awt.*;
-public abstract class Rabbit implements IBehaviour {
+import java.io.Serializable;
+
+public abstract class Rabbit implements IBehaviour, Serializable {
     protected int x;
     protected int y;
     public int timeBorn;
@@ -13,5 +15,14 @@ public abstract class Rabbit implements IBehaviour {
         this.timeBorn = timeBorn;
         this.timeLife = timeLife;
     }
+
+    public void setTimeBorn(int timeBorn) {
+        this.timeBorn = timeBorn;
+    }
+
+    public void setTimeLife(int timeLife) {
+        this.timeLife = timeLife;
+    }
+
     public abstract void draw(Graphics g);
 }

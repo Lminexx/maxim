@@ -2,31 +2,36 @@ package Controller;
 
 import AI.AlbinosAI;
 import AI.BasicAI;
+import Console.MyConsole;
 import Rabbits.*;
 import Template.Singleton;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.*;
+import java.util.LinkedList;
 import java.util.Random;
+import java.util.Scanner;
+import java.util.Vector;
+
 public class Habitat {
-    private static int width = 800;
-    private static int height = 1000;
-    private int interval = 1000;
+    private static final int width = 800;
+    private static final int height = 1000;
+    private final int interval = 1000;
     private int intervalBasic = 1000;
     private int intervalAlbinos = 1000;
     private int time;
     private Timer timer, timerBasic, timerAlbinos, timerRepaint;
-    private JFrame frame;
-    private JPanel panel;
-    private JLabel label;
-    private JLabel textBasicRabbits;
-    private JLabel textAlbinosRabbits;
+    private final JFrame frame;
+    private final JPanel panel;
+    private final JLabel label;
+    private final JLabel textBasicRabbits;
+    private final JLabel textAlbinosRabbits;
     private boolean timeLabel = true;
     private boolean booleanBasicRab = false;
     private boolean booleanAlbinosRab = false;
-    private Singleton rabbits;
-    private Random random;
+    private final Singleton rabbits;
+    private final Random random;
     private JButton startBut, stopBut;
     private boolean isStarting = false;
     private JCheckBox checkBox;
@@ -40,6 +45,10 @@ public class Habitat {
     private AlbinosAI albinosAI;
     private boolean basicAIIsStarted = true;
     private boolean albinosAIIsStarted = true;
+    private int priorityBasicasd = 1;
+    private int priorityAlbinosasd = 1;
+    private JComboBox<Integer> boxForFirst, boxForSecond;
+    private JComboBox<Integer> boxForBasic, boxForAlbinos;
 
     public static void main(String[] args) {
         Habitat habitat = new Habitat();
@@ -80,10 +89,18 @@ public class Habitat {
         frame.add(panel);
         controlMenu();
         controlPanel();
+        basicAI = new BasicAI();
+        albinosAI = new AlbinosAI();
+        loadConf();
         keyBoardClick();
         frame.setVisible(true);
         frame.setFocusable(true);
+        Timer timer1 = new Timer(1000, e->{
+            saveConf();
+        });
+        timer1.start();
     }
+
     public void controlMenu() {
         JMenuBar jMenuBar = new JMenuBar();
         //первая менюшка
@@ -96,6 +113,12 @@ public class Habitat {
         JMenu timer_menu = new JMenu("Timer");
         JMenuItem show_time = new JMenuItem("Show time");
         JMenuItem hide_time = new JMenuItem("Hide time");
+        //третья менюшка
+        JMenu console_menu = new JMenu("Serialize");
+        JMenuItem console = new JMenuItem("Console");
+        JMenuItem load = new JMenuItem("Load");
+        JMenuItem save = new JMenuItem("Save");
+
         //добавления в менюшки данных
         simulation.add(start);
         simulation.add(stop);
@@ -104,8 +127,14 @@ public class Habitat {
 
         timer_menu.add(show_time);
         timer_menu.add(hide_time);
+
+        console_menu.add(console);
+        console_menu.add(load);
+        console_menu.add(save);
+
         jMenuBar.add(simulation);
         jMenuBar.add(timer_menu);
+        jMenuBar.add(console_menu);
 
         //действия по нажатию
         start.addActionListener(e -> {
@@ -128,22 +157,35 @@ public class Habitat {
             hide_time();
         });
 
+        console.addActionListener(e -> {
+            MyConsole myConsole = new MyConsole();
+            myConsole.showConsole();
+        });
+        load.addActionListener(e -> {
+            loadRabbits();
+        });
+        save.addActionListener(e -> {
+            saveRabbits();
+        });
+
         //добавление в фрейм + антифокус
         jMenuBar.setFocusable(false);
         simulation.setFocusable(false);
         timer_menu.setFocusable(false);
+        console_menu.setFocusable(false);
         frame.setJMenuBar(jMenuBar);
     }
+
     public void controlPanel() {
         JPanel controlpanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                g.setColor(Color.BLUE);
+                g.setColor(Color.GRAY);
                 g.fillRect(0, 0, getWidth(), getHeight());
             }
         };
-        controlpanel.setPreferredSize(new Dimension(270, frame.getHeight()));
+        controlpanel.setPreferredSize(new Dimension(300, frame.getHeight()));
         controlpanel.setLayout(new FlowLayout());
         //Создание объектов для контрольной панели
         startBut = new JButton("Start");
@@ -153,9 +195,9 @@ public class Habitat {
         hideTimeRadio = new JRadioButton("hide time");
         ButtonGroup buttonGroup = new ButtonGroup();
         JLabel textForChanceFirst = new JLabel("Шанс рождения первого:");
-        JComboBox<Integer> boxForFirst = new JComboBox<>();
+        boxForFirst = new JComboBox<>();
         JLabel textForChanceSecond = new JLabel("Шанс рождения второго:");
-        JComboBox<Integer> boxForSecond = new JComboBox<>();
+        boxForSecond = new JComboBox<>();
         JLabel textForInputFirst = new JLabel("Периодичность появления первого:");
         inputForFirst = new JFormattedTextField("1");
         JLabel textForInputSecond = new JLabel("Периодичность появления второго:");
@@ -167,8 +209,8 @@ public class Habitat {
         Button buttonShowLifes = new Button("Показать объекты");
         Button startStopBasic = new Button("Stop/Enable Basic");
         Button startStopAlbinos = new Button("Stop/Enable Albinos");
-        JComboBox<Integer> boxForBasic = new JComboBox<>();
-        JComboBox<Integer> boxForAlbinos = new JComboBox<>();
+        boxForBasic = new JComboBox<>();
+        boxForAlbinos = new JComboBox<>();
 
         //Вид
         startBut.setForeground(Color.BLACK);
@@ -211,8 +253,6 @@ public class Habitat {
             boxForBasic.addItem(i);
             boxForAlbinos.addItem(i);
         }
-        boxForFirst.setSelectedItem(70);
-        boxForSecond.setSelectedItem(80);
 
         //Функции кнопок
         startBut.addActionListener(e -> {
@@ -222,11 +262,7 @@ public class Habitat {
             stopButton();
         });
         checkBox.addActionListener(e -> {
-            if (flagForInfo) {
-                flagForInfo = false;
-            } else {
-                flagForInfo = true;
-            }
+            flagForInfo = !flagForInfo;
         });
         showTimeRadio.addActionListener(e -> {
             timeLabel = true;
@@ -238,17 +274,18 @@ public class Habitat {
         });
         boxForFirst.addActionListener(e -> {
             int selected = (int) boxForFirst.getSelectedItem();
-            basicChanche = selected / 100;
+            basicChanche = (double) selected / 100;
         });
         boxForSecond.addActionListener(e -> {
             int selected = (int) boxForSecond.getSelectedItem();
-            albinosChanche = selected / 100;
+            albinosChanche = (double) selected / 100;
         });
         inputForFirst.addActionListener(e -> {
             try {
                 int newValue = Integer.parseInt(inputForFirst.getText());
                 if (newValue >= 0 && newValue <= 100)  {
                     timerBasic.setDelay(newValue * 1000);
+                    intervalBasic = newValue*1000;
                     panel.requestFocusInWindow();
                     panel.setFocusable(true);
                     frame.setFocusable(true);
@@ -264,6 +301,7 @@ public class Habitat {
                 int newValue = Integer.parseInt(inputForSecond.getText());
                 if (newValue >= 0 && newValue <= 100) {
                     timerAlbinos.setDelay(newValue * 1000);
+                    intervalAlbinos = newValue*1000;
                     panel.requestFocusInWindow();
                     panel.setFocusable(true);
                     frame.setFocusable(true);
@@ -383,6 +421,68 @@ public class Habitat {
         controlpanel.add(boxForAlbinos);
         frame.add(controlpanel, BorderLayout.WEST);
     }
+
+    private void loadRabbits(){
+        JFileChooser jFileChooser = new JFileChooser();
+        int value = jFileChooser.showOpenDialog(frame);
+        stopSimulation();
+        startSimulation();
+        if (value == JFileChooser.APPROVE_OPTION) {
+            try(ObjectInputStream ois = new ObjectInputStream(new FileInputStream(jFileChooser.getSelectedFile().getName()))){
+                Vector<Rabbit> vectorList;
+                vectorList = (Vector<Rabbit>) ois.readObject();
+                rabbits.setVectorList(vectorList);
+                for (Rabbit rabbit: rabbits.getVectorList()){
+                    rabbit.setTimeBorn((int) ((double) time /1000));
+                }
+            } catch (ClassNotFoundException | IOException e) {
+                System.out.println("error");
+            }
+        }
+    }
+
+    private void saveRabbits(){
+        JFileChooser jFileChooser = new JFileChooser();
+        int value = jFileChooser.showSaveDialog(frame);
+        if(value == JFileChooser.APPROVE_OPTION){
+            try(ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(jFileChooser.getSelectedFile().getName()))) {
+                oos.writeObject(rabbits.getVectorList());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    public void loadConf(){
+        try(Scanner scanner = new Scanner(new File("src/configuration.txt"))){
+            setBasicChanche(Double.parseDouble(scanner.nextLine()));
+            setAlbinosChanche(Double.parseDouble(scanner.nextLine()));
+            setIntervalBasic(Integer.parseInt(scanner.nextLine())*1000);
+            setIntervalAlbinos(Integer.parseInt(scanner.nextLine())*1000);
+            setTimeLifeBasic(Integer.parseInt(scanner.nextLine()));
+            setTimeLifeAlbinos(Integer.parseInt(scanner.nextLine()));
+            setPriorityBasicasd(Integer.parseInt(scanner.nextLine()));
+            setPriorityAlbinosasd(Integer.parseInt(scanner.nextLine()));
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void saveConf(){
+        try(FileWriter writer = new FileWriter("src/configuration.txt")){
+            writer.write(getBasicChanche()+ "\n");
+            writer.write(getAlbinosChanche()+ "\n");
+            writer.write(getIntervalBasic()/1000 + "\n");
+            writer.write(getIntervalAlbinos()/1000 + "\n");
+            writer.write(getTimeLifeBasic()+"\n");
+            writer.write(getTimeLifeAlbinos()+"\n");
+            writer.write(getPriorityBasic()+"\n");
+            writer.write(getPriorityAlbinos()+"\n");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void startTimers() {
         timer = new Timer(interval, e -> {
             panel.repaint();
@@ -403,12 +503,10 @@ public class Habitat {
         timerAlbinos.start();
         timerRepaint.start();
     }
-    public void startTreads(){
-        basicAI = new BasicAI();
-        basicAI.start();
-        albinosAI = new AlbinosAI();
-        albinosAI.start();
 
+    public void startTreads(){
+        basicAI.start();
+        albinosAI.start();
     }
 
     public void startButton() {
@@ -569,9 +667,88 @@ public class Habitat {
         }
     }
     public void setPriorityBasic(int priority){
+        priorityBasicasd = priority;
         basicAI.getThread().setPriority(priority);
     }
     public void setPriorityAlbinos(int priority){
+        priorityAlbinosasd = priority;
         albinosAI.getThread().setPriority(priority);
+    }
+
+    public double getBasicChanche() {
+        return basicChanche;
+    }
+
+    public void setBasicChanche(double basicChanche) {
+        this.basicChanche = basicChanche;
+        double v = basicChanche*100;
+        boxForFirst.setSelectedItem((int) v);
+
+    }
+
+    public double getAlbinosChanche() {
+        return albinosChanche;
+    }
+
+    public void setAlbinosChanche(double albinosChanche) {
+        this.albinosChanche = albinosChanche;
+        double v = albinosChanche * 100;
+        boxForSecond.setSelectedItem((int) v);
+    }
+
+    public int getIntervalBasic() {
+        return intervalBasic;
+    }
+
+    public int getIntervalAlbinos() {
+        return intervalAlbinos;
+    }
+
+    public void setIntervalBasic(int intervalBasic) {
+        this.intervalBasic = intervalBasic;
+        inputForFirst.setText(String.valueOf(intervalBasic/1000));
+
+    }
+
+    public void setIntervalAlbinos(int intervalAlbinos) {
+        this.intervalAlbinos = intervalAlbinos;
+        inputForSecond.setText(String.valueOf(intervalAlbinos/1000));
+
+    }
+
+    public int getTimeLifeBasic() {
+        return timeLifeBasic;
+    }
+
+    public void setTimeLifeBasic(int timeLifeBasic) {
+        this.timeLifeBasic = timeLifeBasic;
+        inputTimeLifeBasic.setText(String.valueOf(timeLifeBasic));
+    }
+
+    public int getTimeLifeAlbinos() {
+        return timeLifeAlbinos;
+    }
+
+    public void setTimeLifeAlbinos(int timeLifeAlbinos) {
+        this.timeLifeAlbinos = timeLifeAlbinos;
+        inputTimeLifeAlbinos.setText(String.valueOf(timeLifeAlbinos));
+    }
+
+    public int getPriorityBasic() {
+        return priorityBasicasd;
+    }
+
+    public int getPriorityAlbinos() {
+        return priorityAlbinosasd;
+    }
+
+    public void setPriorityBasicasd(int priorityBasicasd) {
+        this.priorityBasicasd = priorityBasicasd;
+        boxForBasic.setSelectedItem(priorityBasicasd);
+    }
+
+    public void setPriorityAlbinosasd(int priorityAlbinosasd) {
+        this.priorityAlbinosasd = priorityAlbinosasd;
+        boxForAlbinos.setSelectedItem(priorityAlbinosasd);
     }
 }
